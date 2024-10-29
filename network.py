@@ -3,30 +3,42 @@ import torch.nn as nn
 import torch.nn.functional as F
 from MobileNetV2 import mobilenet_v2
 import numpy as np
+class GraphConvolutionLayer(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(GraphConvolutionLayer, self).__init__()
+        self.fc = nn.Linear(in_features, out_features)
+        self.relu = nn.ReLU()
+
+    def forward(self, x, edge_index, edge_features):
+        # Graph convolution with edge features
+        x = self.fc(x)
+        for i, (src, dst) in enumerate(edge_index):
+            x[dst] += edge_features[i] * x[src]
+        return self.relu(x)
+
 class FeatureExtractionModule(nn.Module):
     def __init__(self, backbone):
         super(FeatureExtractionModule, self).__init__()
         self.backbone = backbone
+        self.gcn = GraphConvolutionLayer(64, 64)  # Example feature sizes; adjust as needed
 
     def load_pretrained_model(self, model_path):
         pretrained_dict = torch.load(model_path)
         model_dict = self.backbone.state_dict()
-        pretrained_dict = {ka: va for ka, va in pretrained_dict.items() if ka in model_dict}
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
         model_dict.update(pretrained_dict)
         self.backbone.load_state_dict(model_dict)
-        
-    def forward(self, x,y):
-        conv1r, conv2r, conv3r, conv4r, conv5r = self.backbone(x)
-        conv1d, conv2d, conv3d, conv4d, conv5d = self.backbone(y)        
-        '''print("Backbone Features shape")
-        print("RGB1: ",conv1r.shape,"    Depth1: ",conv1d.shape)
-        print("RGB2: ",conv2r.shape,"    Depth2: ",conv2d.shape)
-        print("RGB3: ",conv3r.shape,"    Depth3: ",conv3d.shape)
-        print("RGB4: ",conv4r.shape,"    Depth4: ",conv4d.shape)
-        print("RGB5: ",conv5r.shape,"    Depth5: ",conv5d.shape)'''
-        
 
-        return conv1r, conv2r, conv3r, conv4r, conv5r, conv1d, conv2d, conv3d, conv4d, conv5d # list of tensor that compress model output
+    def forward(self, rgb, depth, edge_index=None, edge_features=None):
+        conv1r, conv2r, conv3r, conv4r, conv5r = self.backbone(rgb)
+        conv1d, conv2d, conv3d, conv4d, conv5d = self.backbone(depth)
+
+        if edge_index is not None and edge_features is not None:
+            conv1d = self.gcn(conv1d, edge_index, edge_features)
+            conv2d = self.gcn(conv2d, edge_index, edge_features)
+            # Apply GCN to additional levels if needed
+
+        return conv1r, conv2r, conv3r, conv4r, conv5r, conv1d, conv2d, conv3d, conv4d, conv5d
 
 
 class depthwise_separable_conv(nn.Module):
@@ -220,9 +232,8 @@ class Decoder(nn.Module):
         
 
 
-
 class General(nn.Module):
-    def __init__(self,FeatureExtractionModule,levelEnhancedModule,Decoder):
+    def __init__(self, FeatureExtractionModule, levelEnhancedModule, Decoder):
         super(General, self).__init__()
         self.FeatureExtractionModule = FeatureExtractionModule
         self.levelEnhancedModule = levelEnhancedModule
@@ -232,20 +243,20 @@ class General(nn.Module):
             nn.Conv2d(in_channels_list[i], 1, kernel_size=1)
             for i in range(len(in_channels_list))
         ])
-       
-    def forward(self,rgb,depth):
-        F1r, F2r, F3r, F4r, F5r, F1d, F2d, F3d, F4d, F5d = self.FeatureExtractionModule(rgb,depth)
+
+    def forward(self, rgb, depth, edge_index=None, edge_features=None):
+        F1r, F2r, F3r, F4r, F5r, F1d, F2d, F3d, F4d, F5d = self.FeatureExtractionModule(rgb, depth, edge_index, edge_features)
         F_Fd = self.levelEnhancedModule(F1r, F2r, F3r, F4r, F5r, F1d, F2d, F3d, F4d, F5d)
         F_Rle , F_Dle = self.decoder(F_Fd, F1r, F2r, F3r, F4r, F5r, F1d, F2d, F3d, F4d, F5d)
+        
         for i in range(5):
             F_Fd[i] = self.conv1x1[i](F_Fd[i])
-        return F_Fd[0],F_Fd[1],F_Fd[2],F_Fd[3],F_Fd[4],self.conv1x1[5](F_Rle[1] ),self.conv1x1[5]( F_Dle[1])
-      
+        return F_Fd[0], F_Fd[1], F_Fd[2], F_Fd[3], F_Fd[4], self.conv1x1[5](F_Rle[1]), self.conv1x1[5](F_Dle[1])
+
 def build_model(network='mobilenet', base_model_cfg='mobilenet'):
-   
-        backbone = mobilenet_v2()
-        in_channels_list = [32,48,64,192,640]
-        out_channels_list = [32,48,64,192,640]
-        in_channels_list_n = [64,88,224,736]
-        out_channels_list_n = [16,24,32,96]
-        return General(FeatureExtractionModule(backbone),levelEnhancedModule(in_channels_list,out_channels_list),Decoder(in_channels_list_n,out_channels_list_n))
+    backbone = mobilenet_v2()
+    in_channels_list = [32,48,64,192,640]
+    out_channels_list = [32,48,64,192,640]
+    in_channels_list_n = [64,88,224,736]
+    out_channels_list_n = [16,24,32,96]
+    return General(FeatureExtractionModule(backbone), levelEnhancedModule(in_channels_list, out_channels_list), Decoder(in_channels_list_n, out_channels_list_n))
