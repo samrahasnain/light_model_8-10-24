@@ -12,6 +12,7 @@ class GraphConvolutionLayer(nn.Module):
     def forward(self, x, edge_index, edge_features):
         # Graph convolution with edge features
         print(x.shape)
+        x = x.view(x.size(0), -1)
         x = self.fc(x)
         for i, (src, dst) in enumerate(edge_index):
             x[dst] += edge_features[i] * x[src]
@@ -21,7 +22,7 @@ class FeatureExtractionModule(nn.Module):
     def __init__(self, backbone):
         super(FeatureExtractionModule, self).__init__()
         self.backbone = backbone
-        self.gcn = GraphConvolutionLayer(2560,160)  # Example feature sizes; adjust as needed
+        self.gcn = GraphConvolutionLayer(16*160*160,160)  # Example feature sizes; adjust as needed
 
     def load_pretrained_model(self, model_path):
         pretrained_dict = torch.load(model_path)
