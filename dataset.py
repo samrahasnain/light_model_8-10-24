@@ -66,7 +66,10 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
     print("sal_label shape:", sal_label.shape)
     print("sal_depth shape:", sal_depth.shape)
     print("sal_image shape:", sal_image.shape)
-    h, w = image_size, image_size
+    if sal_label.dim() == 3:  # Change from (H, W, 1) to (H, W)
+        sal_label = sal_label.squeeze(2)  # Now it will be (H, W)
+
+    h, w = self.image_size, self.image_size
     edge_index = []
     depth_attrs = []
     sal_image_attrs = []
@@ -75,15 +78,15 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
     for i, j in product(range(h), range(w)):
         node_id = i * w + j
         for ni, nj in [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]:
-            if 0 <= ni < h and 0 <= nj < w:
+           if 0 <= ni < h and 0 <= nj < w:
                 neighbor_id = ni * w + nj
                 edge_index.append([node_id, neighbor_id])
-                
+                    
                 # Compute feature differences
-                depth_diff = torch.abs(sal_depth[:, i, j] - sal_depth[:, ni, nj]).mean().item()
-                sal_image_diff = torch.abs(sal_image[:, i, j] - sal_image[:, ni, nj]).mean().item()  # Assuming sal_image is passed
-                sal_label_diff = torch.abs(sal_label[:, i, j] - sal_label[:, ni, nj]).mean().item()
-                
+                depth_diff = torch.abs(sal_depth[i, j] - sal_depth[ni, nj]).mean().item()
+                sal_image_diff = torch.abs(sal_image[i, j] - sal_image[ni, nj]).mean().item()
+                sal_label_diff = torch.abs(sal_label[i, j] - sal_label[ni, nj]).mean().item()
+
                 # Store individual attributes
                 depth_attrs.append(depth_diff)
                 sal_image_attrs.append(sal_image_diff)
@@ -92,7 +95,7 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
     edge_index = torch.LongTensor(edge_index).t().contiguous()
 
     # Combine the individual attributes
-    combined_edge_attr = [(sal_depth, sal_image, sal_label) for sal_depth, sal_image, sal_label in zip(depth_attrs, sal_image_attrs, sal_label_attrs)]
+    combined_edge_attr = [(depth, sal_image, sal_label) for depth, sal_image, sal_label in zip(depth_attrs, sal_image_attrs, sal_label_attrs)]
     edge_attr = torch.Tensor(combined_edge_attr)  # Now it has three features per edge
 
     return edge_index, edge_attr
