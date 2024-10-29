@@ -139,14 +139,14 @@ class Solver(object):
             r_sal_loss = 0
             r_sal_loss_item=0
             for i, data_batch in enumerate(self.train_loader):
-                sal_image, sal_depth, sal_label, sal_edge = data_batch['sal_image'], data_batch['sal_depth'], data_batch[
-                    'sal_label'], data_batch['sal_edge']
+                sal_image, sal_depth, sal_label, edge_index, edge_attr = data_batch['sal_image'], data_batch['sal_depth'], data_batch[
+                    'sal_label'], data_batch['edge_index'], data_batch['edge_attr']
                 if (sal_image.size(2) != sal_label.size(2)) or (sal_image.size(3) != sal_label.size(3)):
                     print('IMAGE ERROR, PASSING```')
                     continue
                 if self.config.cuda:
                     device = torch.device(self.config.device_id)
-                    sal_image, sal_depth, sal_label, sal_edge= sal_image.to(device), sal_depth.to(device), sal_label.to(device),sal_edge.to(device)
+                    sal_image, sal_depth, sal_label, edge_index,edge_attr= sal_image.to(device), sal_depth.to(device), sal_label.to(device), edge_index.to(device),edge_attr.to(device)
 
                
                 self.optimizer.zero_grad()
@@ -155,7 +155,7 @@ class Solver(object):
                 sal_label_coarse3 = F.interpolate(sal_label, size_coarse3, mode='bilinear', align_corners=True)
                 sal_label_coarse4 = F.interpolate(sal_label, size_coarse4, mode='bilinear', align_corners=True)
                 sal_label_coarse5 = F.interpolate(sal_label, size_coarse5, mode='bilinear', align_corners=True)
-                Fd1,Fd2,Fd3,Fd4,Fd5,Fr,Fd = self.net(sal_image,sal_depth)
+                Fd1,Fd2,Fd3,Fd4,Fd5,Fr,Fd = self.net(sal_image,sal_depth,edge_index,edge_attr)
                 #print("Solver")
                 #print(Fd1.shape,Fd2.shape,Fr.shape,Fd.shape)
                 Fd1_loss = self.iou_loss_saliency(Fd1,sal_label_coarse1,0.5)
