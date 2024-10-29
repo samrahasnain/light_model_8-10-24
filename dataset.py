@@ -59,6 +59,11 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
         sal_depth = torch.tensor(sal_depth, dtype=torch.float32)
     if isinstance(sal_image, np.ndarray):
         sal_image = torch.tensor(sal_image, dtype=torch.float32)
+    # Squeeze to remove single-dimensional entries if necessary
+    sal_label = sal_label.squeeze(1) if sal_label.dim() == 4 else sal_label  # Convert from (N, 1, H, W) to (N, H, W)
+    sal_depth = sal_depth.squeeze(1) if sal_depth.dim() == 4 else sal_depth  # Same for depth
+    sal_image = sal_image.squeeze(1) if sal_image.dim() == 4 else sal_image  # Same for image
+
     h, w = image_size, image_size
     edge_index = []
     depth_attrs = []
