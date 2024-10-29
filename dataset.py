@@ -63,7 +63,9 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
     sal_label = sal_label.squeeze(1) if sal_label.dim() == 4 else sal_label  # Convert from (N, 1, H, W) to (N, H, W)
     sal_depth = sal_depth.squeeze(1) if sal_depth.dim() == 4 else sal_depth  # Same for depth
     sal_image = sal_image.squeeze(1) if sal_image.dim() == 4 else sal_image  # Same for image
-
+    print("sal_label shape:", sal_label.shape)
+    print("sal_depth shape:", sal_depth.shape)
+    print("sal_image shape:", sal_image.shape)
     h, w = image_size, image_size
     edge_index = []
     depth_attrs = []
