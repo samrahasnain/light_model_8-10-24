@@ -11,6 +11,7 @@ class GraphConvolutionLayer(nn.Module):
 
     def forward(self, x, edge_index, edge_features):
         # Graph convolution with edge features
+        print(x.shape)
         x = self.fc(x)
         for i, (src, dst) in enumerate(edge_index):
             x[dst] += edge_features[i] * x[src]
