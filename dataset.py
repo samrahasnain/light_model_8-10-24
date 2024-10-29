@@ -53,6 +53,12 @@ class ImageDataTrain(data.Dataset):
         return self.sal_num
 
 def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
+    if isinstance(sal_label, np.ndarray):
+        sal_label = torch.tensor(sal_label, dtype=torch.float32)
+    if isinstance(sal_depth, np.ndarray):
+        sal_depth = torch.tensor(sal_depth, dtype=torch.float32)
+    if isinstance(sal_image, np.ndarray):
+        sal_image = torch.tensor(sal_image, dtype=torch.float32)
     h, w = image_size, image_size
     edge_index = []
     depth_attrs = []
