@@ -69,7 +69,7 @@ def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
     if sal_label.dim() == 3:  # Change from (H, W, 1) to (H, W)
         sal_label = sal_label.squeeze(2)  # Now it will be (H, W)
 
-    h, w = self.image_size, self.image_size
+    h, w = image_size, image_size
     edge_index = []
     depth_attrs = []
     sal_image_attrs = []
