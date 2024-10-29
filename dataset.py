@@ -26,6 +26,9 @@ class ImageDataTrain(data.Dataset):
         sal_label,sal_edge = load_sal_label(os.path.join(self.sal_root, gt_name), self.image_size)
 
         sal_image, sal_depth, sal_label = cv_random_crop(sal_image, sal_depth, sal_label, self.image_size)
+        edge_index, edge_attr = compute_edges_and_features(sal_label, sal_depth, sal_image,self.image_size)  # Pass sal_image
+
+    
         sal_image = sal_image.transpose((2, 0, 1))
         sal_depth = sal_depth.transpose((2, 0, 1))
         sal_label = sal_label.transpose((2, 0, 1))
@@ -36,11 +39,49 @@ class ImageDataTrain(data.Dataset):
         sal_label = torch.Tensor(sal_label)
         sal_edge = torch.Tensor(sal_edge)
 
-        sample = {'sal_image': sal_image, 'sal_depth': sal_depth, 'sal_label': sal_label, 'sal_edge': sal_edge}
-        return sample
+        return {
+        'sal_image': sal_image,
+        'sal_depth': sal_depth,
+        'sal_label': sal_label,
+        'edge_index': edge_index,
+        'edge_attr': edge_attr    }
+        
 
     def __len__(self):
         return self.sal_num
+
+def compute_edges_and_features( sal_label, sal_depth,sal_image,image_size):
+    h, w = image_size, image_size
+    edge_index = []
+    depth_attrs = []
+    sal_image_attrs = []
+    sal_label_attrs = []
+
+    for i, j in product(range(h), range(w)):
+        node_id = i * w + j
+        for ni, nj in [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]:
+            if 0 <= ni < h and 0 <= nj < w:
+                neighbor_id = ni * w + nj
+                edge_index.append([node_id, neighbor_id])
+                
+                # Compute feature differences
+                depth_diff = torch.abs(sal_depth[:, i, j] - sal_depth[:, ni, nj]).mean().item()
+                sal_image_diff = torch.abs(sal_image[:, i, j] - sal_image[:, ni, nj]).mean().item()  # Assuming sal_image is passed
+                sal_label_diff = torch.abs(sal_label[:, i, j] - sal_label[:, ni, nj]).mean().item()
+                
+                # Store individual attributes
+                depth_attrs.append(depth_diff)
+                sal_image_attrs.append(sal_image_diff)
+                sal_label_attrs.append(sal_label_diff)
+
+    edge_index = torch.LongTensor(edge_index).t().contiguous()
+
+    # Combine the individual attributes
+    combined_edge_attr = [(sal_depth, sal_image, sal_label) for sal_depth, sal_image, sal_label in zip(depth_attrs, sal_image_attrs, sal_label_attrs)]
+    edge_attr = torch.Tensor(combined_edge_attr)  # Now it has three features per edge
+
+    return edge_index, edge_attr
+
 
 
 class ImageDataTest(data.Dataset):
