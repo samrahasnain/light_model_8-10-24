@@ -20,7 +20,7 @@ class FeatureExtractionModule(nn.Module):
     def __init__(self, backbone):
         super(FeatureExtractionModule, self).__init__()
         self.backbone = backbone
-        self.gcn = GraphConvolutionLayer(64, 64)  # Example feature sizes; adjust as needed
+        self.gcn = GraphConvolutionLayer(2560,160)  # Example feature sizes; adjust as needed
 
     def load_pretrained_model(self, model_path):
         pretrained_dict = torch.load(model_path)
